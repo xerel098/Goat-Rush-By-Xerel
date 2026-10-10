@@ -1,0 +1,733 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>Goat Rush by xerel</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #9bd4f5;
+    font-family: system-ui, sans-serif; touch-action: none; user-select: none; }
+  canvas { display: block; }
+  #hud { position: fixed; top: 10px; left: 0; right: 0; display: flex; flex-direction: column;
+    align-items: center; gap: 6px; pointer-events: none; color: #fff; text-shadow: 0 2px 4px #0007; }
+  #score { font-size: 30px; font-weight: 800; }
+  #grass { font-size: 18px; font-weight: 700; }
+  #barwrap { width: min(70vw, 320px); height: 14px; background: #0005; border-radius: 8px; overflow: hidden; }
+  #fill { height: 100%; width: 100%; background: #4cd964; transition: background .2s; }
+  #lbl { font-size: 13px; font-weight: 700; letter-spacing: .05em; }
+  #overlay { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center;
+    justify-content: center; text-align: center; color: #fff; background: #0006; padding: 20px; }
+  #overlay h1 { font-size: clamp(30px, 8vw, 54px); margin: 0 0 10px; text-shadow: 0 3px 8px #0008; }
+  #overlay p { font-size: clamp(15px, 4vw, 20px); margin: 6px 0; text-shadow: 0 2px 4px #0008; }
+  #overlay .go { margin-top: 18px; font-size: clamp(16px, 4.5vw, 22px); font-weight: 800; color: #ffe97a; }
+  #vig { position: fixed; inset: 0; display: none; pointer-events: none;
+    background: radial-gradient(ellipse at center, transparent 45%, rgba(40, 0, 10, .6) 100%); }
+  .modes { display: flex; gap: 12px; margin-top: 18px; flex-wrap: wrap; justify-content: center; }
+  .modes button { font: 800 clamp(16px, 4.5vw, 22px) system-ui, sans-serif; padding: 12px 22px;
+    border: 0; border-radius: 14px; cursor: pointer; color: #fff; box-shadow: 0 4px 10px #0006; }
+  #bNormal { background: #2f9e44; }
+  #bNight { background: #4c2a85; }
+  .panel { display: flex; flex-direction: column; align-items: center; text-align: center;
+    max-width: 560px; width: 100%; }
+  .logo { font-size: clamp(44px, 13vw, 92px); font-weight: 900; letter-spacing: .04em; color: #fff;
+    text-shadow: 0 4px 0 #2f9e44, 0 10px 24px #000a; animation: bob 2.4s ease-in-out infinite; }
+  .logo.small { font-size: clamp(30px, 9vw, 52px); animation: none; margin-bottom: 8px; }
+  @keyframes bob { 50% { transform: translateY(-8px) rotate(-1.5deg); } }
+  .tag { font-size: clamp(15px, 4vw, 20px); margin-top: 6px; text-shadow: 0 2px 4px #0008; }
+  .menuBtns { display: flex; flex-direction: column; gap: 12px; margin-top: 22px; width: min(80vw, 320px); }
+  .menuBtns button { font: 800 clamp(17px, 4.8vw, 22px) system-ui, sans-serif; padding: 14px 20px;
+    border: 0; border-radius: 14px; cursor: pointer; color: #fff; background: #3b4a6b;
+    box-shadow: 0 5px 0 #0004, 0 8px 16px #0005; }
+  .menuBtns button:active { transform: translateY(3px); }
+  #bRetry { background: #2f9e44; }
+  #bests { margin-top: 20px; font-size: clamp(14px, 4vw, 18px); font-weight: 700; text-shadow: 0 2px 4px #0008; }
+  .hint { margin-top: 8px; font-size: 13px; opacity: .8; text-shadow: 0 2px 4px #0008; }
+  #mute { position: fixed; top: 10px; right: 10px; z-index: 10; width: 44px; height: 44px; font-size: 22px;
+    border: 0; border-radius: 12px; background: #0006; color: #fff; cursor: pointer; }
+</style>
+</head>
+<body>
+<div id="vig"></div>
+<button id="mute" title="Sound on/off">🔊</button>
+<div id="hud" style="display:none">
+  <div id="score">0 m</div>
+  <div id="grass">🌿 0</div>
+  <div id="barwrap"><div id="fill"></div></div>
+  <div id="lbl">🐺 WOLF DISTANCE</div>
+</div>
+<div id="overlay">
+  <div id="home" class="panel">
+    <div class="logo">🐐 GOAT RUSH</div>
+    <div style="font-size:clamp(18px,5vw,28px);font-weight:800;letter-spacing:.12em;color:#ffe97a;margin-top:2px;text-shadow:0 2px 6px #000a">by xerel</div>
+    <div class="tag">Outrun the wolf. Eat grass. Don't stop.</div>
+    <div class="menuBtns">
+      <button id="bNormal">▶ Play</button>
+      <button id="bNight">🌙 Nightmare Mode</button>
+      <button id="bHow">❓ How to Play</button>
+    </div>
+    <div id="bests"></div>
+    <div class="hint">Keyboard: Space = Play · N = Nightmare</div>
+  </div>
+  <div id="howto" class="panel" style="display:none">
+    <div class="logo small">How to Play</div>
+    <p>⬅️ ➡️ / A D, or swipe left/right: change lane</p>
+    <p>⬆️ / W / Space, or swipe up: jump</p>
+    <p>🪨 Rocks can be jumped. 🚧 Fences can't, so dodge them!</p>
+    <p>🌿 Eat grass to push the wolf back. Every hit lets it catch up.</p>
+    <p>🌙 Nightmare: darkness, a bigger and faster wolf, tougher rules.</p>
+    <div class="menuBtns"><button id="bBack">⬅ Back</button></div>
+  </div>
+  <div id="over" class="panel" style="display:none">
+    <h1 id="title">🐺 The wolf got you!</h1>
+    <p id="sub"></p>
+    <div class="menuBtns">
+      <button id="bRetry">🔁 Play again</button>
+      <button id="bHome">🏠 Home</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+// ---------- setup ----------
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x9bd4f5);
+scene.fog = new THREE.Fog(0x9bd4f5, 28, 75);
+
+const camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.1, 200);
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.shadowMap.enabled = true;
+document.body.appendChild(renderer.domElement);
+
+const hemi = new THREE.HemisphereLight(0xffffff, 0x6a8f4a, 0.75);
+scene.add(hemi);
+const sun = new THREE.DirectionalLight(0xffffff, 0.8);
+sun.position.set(6, 12, 6);
+sun.target.position.set(0, 0, -8);
+sun.castShadow = true;
+sun.shadow.mapSize.set(1024, 1024);
+Object.assign(sun.shadow.camera, { left: -14, right: 14, top: 28, bottom: -28, near: 1, far: 50 });
+scene.add(sun, sun.target);
+
+const M = (c) => new THREE.MeshLambertMaterial({ color: c });
+function box(w, h, d, c, x, y, z) {
+  const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), M(c));
+  m.position.set(x, y, z);
+  m.castShadow = true;
+  return m;
+}
+
+// ---------- world ----------
+const LANES = [-2.2, 0, 2.2];
+
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(80, 320), M(0x6fb85a));
+ground.rotation.x = -Math.PI / 2;
+ground.position.z = -110;
+ground.receiveShadow = true;
+scene.add(ground);
+
+const path = new THREE.Mesh(new THREE.PlaneGeometry(7.2, 320), M(0xd3b27a));
+path.rotation.x = -Math.PI / 2;
+path.position.set(0, 0.02, -110);
+path.receiveShadow = true;
+scene.add(path);
+
+// moving lane dashes (give a sense of speed)
+const dashes = [];
+for (const x of [-1.1, 1.1]) {
+  for (let i = 0; i < 25; i++) {
+    const d = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.02, 1.6), M(0xf2e3bf));
+    d.position.set(x, 0.04, 10 - i * 4);
+    scene.add(d);
+    dashes.push(d);
+  }
+}
+
+// scenery trees on both sides
+const trees = [];
+function makeTree() {
+  const g = new THREE.Group();
+  g.add(box(0.5, 1.6, 0.5, 0x7a5230, 0, 0.8, 0));
+  const top = new THREE.Mesh(new THREE.ConeGeometry(1.5, 3.2, 8), M(0x2f7d3a));
+  top.position.y = 3.0;
+  top.castShadow = true;
+  g.add(top);
+  return g;
+}
+for (let i = 0; i < 40; i++) {
+  const t = makeTree();
+  const side = i % 2 ? 1 : -1;
+  t.position.set(side * (5.5 + Math.random() * 6), 0, 12 - (i >> 1) * 5 - Math.random() * 2);
+  t.scale.setScalar(0.8 + Math.random() * 0.6);
+  scene.add(t);
+  trees.push(t);
+}
+
+// ---------- animals ----------
+function makeAnimal(body, dark, s, wolf) {
+  const g = new THREE.Group();
+  const legs = [];
+  g.add(box(0.8 * s, 0.7 * s, 1.4 * s, body, 0, 0.95 * s, 0));
+
+  const head = new THREE.Group();
+  head.position.set(0, 1.35 * s, -0.8 * s);
+  head.add(box(0.5 * s, 0.5 * s, 0.5 * s, body, 0, 0, 0));
+  if (wolf) {
+    head.add(box(0.3 * s, 0.25 * s, 0.4 * s, dark, 0, -0.08 * s, -0.4 * s));
+    head.add(box(0.12 * s, 0.24 * s, 0.1 * s, dark, -0.17 * s, 0.35 * s, 0.05 * s));
+    head.add(box(0.12 * s, 0.24 * s, 0.1 * s, dark, 0.17 * s, 0.35 * s, 0.05 * s));
+    head.add(box(0.08 * s, 0.08 * s, 0.05 * s, 0xff3030, -0.13 * s, 0.08 * s, -0.26 * s));
+    head.add(box(0.08 * s, 0.08 * s, 0.05 * s, 0xff3030, 0.13 * s, 0.08 * s, -0.26 * s));
+  } else {
+    head.add(box(0.1 * s, 0.35 * s, 0.1 * s, 0xf3e2b0, -0.14 * s, 0.4 * s, 0.05 * s));
+    head.add(box(0.1 * s, 0.35 * s, 0.1 * s, 0xf3e2b0, 0.14 * s, 0.4 * s, 0.05 * s));
+    head.add(box(0.3 * s, 0.1 * s, 0.1 * s, body, -0.32 * s, 0.05 * s, 0));
+    head.add(box(0.3 * s, 0.1 * s, 0.1 * s, body, 0.32 * s, 0.05 * s, 0));
+    head.add(box(0.1 * s, 0.22 * s, 0.1 * s, dark, 0, -0.3 * s, -0.2 * s));
+    head.add(box(0.08 * s, 0.08 * s, 0.05 * s, 0x222222, -0.13 * s, 0.08 * s, -0.26 * s));
+    head.add(box(0.08 * s, 0.08 * s, 0.05 * s, 0x222222, 0.13 * s, 0.08 * s, -0.26 * s));
+  }
+  g.add(head);
+
+  const tail = box(0.14 * s, 0.14 * s, wolf ? 0.7 * s : 0.3 * s, body, 0, 1.15 * s, 0.9 * s);
+  tail.rotation.x = wolf ? -0.3 : -0.6;
+  g.add(tail);
+
+  for (const [x, z] of [[-0.28, -0.5], [0.28, -0.5], [-0.28, 0.5], [0.28, 0.5]]) {
+    const p = new THREE.Group();
+    p.position.set(x * s, 0.6 * s, z * s);
+    p.add(box(0.2 * s, 0.6 * s, 0.2 * s, dark, 0, -0.3 * s, 0));
+    g.add(p);
+    legs.push(p);
+  }
+  return { g, legs, head };
+}
+
+const goatA = makeAnimal(0xffffff, 0xcfcfcf, 1, false);
+const wolfA = makeAnimal(0x6b6f78, 0x3f434b, 1.35, true);
+// glowing red wolf eyes (visible in the dark)
+wolfA.g.traverse((m) => {
+  if (m.isMesh && m.material.color.getHex() === 0xff3030) {
+    m.material = new THREE.MeshBasicMaterial({ color: 0xff2020 });
+  }
+});
+scene.add(goatA.g, wolfA.g);
+
+// night-time extras (hidden in Normal mode)
+const nightGroup = new THREE.Group();
+const moon = new THREE.Mesh(new THREE.SphereGeometry(5, 24, 24),
+  new THREE.MeshBasicMaterial({ color: 0xfff6d6, fog: false }));
+moon.position.set(-30, 20, -110);
+nightGroup.add(moon);
+const starPos = [];
+for (let i = 0; i < 300; i++) {
+  starPos.push((Math.random() - 0.5) * 220, 6 + Math.random() * 26, -70 - Math.random() * 80);
+}
+const starGeo = new THREE.BufferGeometry();
+starGeo.setAttribute("position", new THREE.Float32BufferAttribute(starPos, 3));
+nightGroup.add(new THREE.Points(starGeo,
+  new THREE.PointsMaterial({ color: 0xffffff, size: 2, sizeAttenuation: false, fog: false })));
+nightGroup.visible = false;
+scene.add(nightGroup);
+const lantern = new THREE.PointLight(0xffc477, 0, 16);   // goat's warm light
+lantern.position.set(0, 3, 1.5);
+scene.add(lantern);
+
+function gallop(a, t, freq, amp) {
+  const ph = [0, Math.PI, Math.PI, 0];
+  a.legs.forEach((l, i) => { l.rotation.x = Math.sin(t * freq + ph[i]) * amp; });
+}
+
+// ---------- obstacles & pickups ----------
+let obstacles = [], pickups = [];
+
+function makeRock(x) {
+  const m = new THREE.Mesh(new THREE.DodecahedronGeometry(0.7), M(0x8a8d93));
+  m.scale.set(1.1, 0.75, 1);
+  m.position.set(x, 0.35, -70);
+  m.castShadow = true;
+  m.userData = { h: 0.9 };
+  return m;
+}
+function makeFence(x) {
+  const g = new THREE.Group();
+  g.add(box(0.22, 2.4, 0.22, 0x7a5230, -0.9, 1.2, 0));
+  g.add(box(0.22, 2.4, 0.22, 0x7a5230, 0.9, 1.2, 0));
+  g.add(box(2.0, 0.28, 0.12, 0xa4703a, 0, 1.0, 0));
+  g.add(box(2.0, 0.28, 0.12, 0xa4703a, 0, 1.8, 0));
+  g.position.set(x, 0, -70);
+  g.userData = { h: 2.4 };
+  return g;
+}
+function makeGrass(x, z) {
+  const g = new THREE.Group();
+  for (let i = -1; i <= 1; i++) {
+    const c = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.7, 5), M(0x3ddc4a));
+    c.position.set(i * 0.14, 0, 0);
+    c.rotation.z = -i * 0.25;
+    g.add(c);
+  }
+  g.position.set(x, 0.75, z);
+  g.userData = {};
+  return g;
+}
+
+function spawnRow() {
+  const order = [0, 1, 2].sort(() => Math.random() - 0.5);
+  const nObs = Math.random() < C.twoObs ? 2 : 1;
+  for (let i = 0; i < nObs; i++) {
+    const o = Math.random() < 0.4 ? makeFence(LANES[order[i]]) : makeRock(LANES[order[i]]);
+    scene.add(o);
+    obstacles.push(o);
+  }
+  if (Math.random() < C.grassChance) {
+    const x = LANES[order[nObs]];
+    for (let k = 0; k < 3; k++) {
+      const p = makeGrass(x, -70 - k * 2.2);
+      scene.add(p);
+      pickups.push(p);
+    }
+  }
+}
+
+// ---------- sound effects (synthesized with Web Audio, no files needed) ----------
+let audio = null, muted = false, heartTimer = 0, growlTimer = 0;
+try { muted = localStorage.getItem("goatrush-muted") === "1"; } catch (e) {}
+
+function ensureAudio() {
+  if (!audio) {
+    try { audio = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return null; }
+  }
+  if (audio.state === "suspended") audio.resume();
+  return audio;
+}
+function tone(freq, dur, type, vol, slideTo, delay) {
+  if (muted) return;
+  const a = ensureAudio();
+  if (!a) return;
+  const t = a.currentTime + (delay || 0);
+  const o = a.createOscillator(), g = a.createGain();
+  o.type = type || "sine";
+  o.frequency.setValueAtTime(freq, t);
+  if (slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, t + dur);
+  g.gain.setValueAtTime(vol || 0.15, t);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(g); g.connect(a.destination);
+  o.start(t); o.stop(t + dur + 0.02);
+}
+function noise(dur, vol, cutoff, delay) {
+  if (muted) return;
+  const a = ensureAudio();
+  if (!a) return;
+  const t = a.currentTime + (delay || 0);
+  const len = Math.floor(a.sampleRate * dur);
+  const buf = a.createBuffer(1, len, a.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+  const src = a.createBufferSource();
+  src.buffer = buf;
+  const f = a.createBiquadFilter();
+  f.type = "lowpass";
+  f.frequency.value = cutoff || 1000;
+  const g = a.createGain();
+  g.gain.setValueAtTime(vol || 0.2, t);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  src.connect(f); f.connect(g); g.connect(a.destination);
+  src.start(t);
+}
+const sfx = {
+  click: () => tone(660, 0.07, "square", 0.07),
+  start: () => { tone(392, 0.1, "square", 0.09); tone(523, 0.1, "square", 0.09, null, 0.09); tone(784, 0.18, "square", 0.09, null, 0.18); },
+  jump:  () => tone(280, 0.2, "square", 0.09, 720),
+  land:  () => noise(0.07, 0.1, 500),
+  lane:  () => noise(0.13, 0.11, 2200),
+  grass: () => { tone(880, 0.08, "triangle", 0.16); tone(1318, 0.14, "triangle", 0.16, null, 0.07); },
+  hit:   () => { noise(0.3, 0.35, 600); tone(130, 0.3, "sawtooth", 0.2, 45); },
+  over:  () => { tone(320, 0.7, "sawtooth", 0.16, 60); tone(160, 0.8, "square", 0.1, 40, 0.15); },
+  growl: () => {   // Nightmare start: a huge snarl, then a distant howl
+    wolfGrowl(1, 1.7);
+    tone(420, 0.7, "sine", 0.07, 760, 1.2);
+    tone(760, 1.0, "sine", 0.07, 430, 1.9);
+  },
+};
+// Layered, distorted growl: detuned low saws + fast tremolo "rattle" + raspy noise, pushed through a clipper
+function wolfGrowl(power, dur) {
+  if (muted) return;
+  const a = ensureAudio();
+  if (!a) return;
+  const t = a.currentTime;
+
+  const out = a.createGain();
+  out.gain.setValueAtTime(0.0001, t);
+  out.gain.exponentialRampToValueAtTime(0.75 * power, t + 0.1);
+  out.gain.setValueAtTime(0.75 * power, t + dur * 0.65);
+  out.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  out.connect(a.destination);
+
+  const lp = a.createBiquadFilter();
+  lp.type = "lowpass";
+  lp.Q.value = 6;
+  lp.frequency.setValueAtTime(1400, t);
+  lp.frequency.exponentialRampToValueAtTime(380, t + dur);
+  lp.connect(out);
+
+  const shaper = a.createWaveShaper();
+  const curve = new Float32Array(256);
+  for (let i = 0; i < 256; i++) { const x = i / 128 - 1; curve[i] = Math.tanh(x * 7); }
+  shaper.curve = curve;
+  shaper.connect(lp);
+
+  const rattle = a.createGain();
+  rattle.gain.value = 0.55;
+  rattle.connect(shaper);
+  const lfo = a.createOscillator();
+  lfo.frequency.setValueAtTime(22, t);
+  lfo.frequency.linearRampToValueAtTime(34, t + dur);
+  const lfoDepth = a.createGain();
+  lfoDepth.gain.value = 0.45;
+  lfo.connect(lfoDepth);
+  lfoDepth.connect(rattle.gain);
+  lfo.start(t);
+  lfo.stop(t + dur + 0.05);
+
+  for (const [f, type] of [[62, "sawtooth"], [66, "sawtooth"], [93, "square"], [124, "sawtooth"]]) {
+    const o = a.createOscillator();
+    o.type = type;
+    o.frequency.setValueAtTime(f * 1.25, t);
+    o.frequency.exponentialRampToValueAtTime(f * 0.8, t + dur);
+    const g = a.createGain();
+    g.gain.value = 0.25;
+    o.connect(g);
+    g.connect(rattle);
+    o.start(t);
+    o.stop(t + dur + 0.05);
+  }
+
+  const len = Math.floor(a.sampleRate * dur);
+  const buf = a.createBuffer(1, len, a.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+  const src = a.createBufferSource();
+  src.buffer = buf;
+  const bp = a.createBiquadFilter();
+  bp.type = "bandpass";
+  bp.frequency.value = 900;
+  bp.Q.value = 1.2;
+  const ng = a.createGain();
+  ng.gain.setValueAtTime(0.0001, t);
+  ng.gain.exponentialRampToValueAtTime(0.35, t + dur * 0.4);
+  ng.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  src.connect(bp);
+  bp.connect(ng);
+  ng.connect(shaper);
+  src.start(t);
+}
+
+function heartbeat(dt) {   // wolf growls when it gets close; in Nightmare a heartbeat speeds up too
+  heartTimer -= dt;
+  growlTimer -= dt;
+  if (gap < 2.0 && growlTimer <= 0) {
+    wolfGrowl(nightmare ? 1 : 0.6, nightmare ? 1.3 : 1.0);
+    growlTimer = 4.5;
+  }
+  if (nightmare && gap < 2.2 && heartTimer <= 0) {
+    tone(62, 0.14, "sine", 0.4, 38);
+    tone(55, 0.12, "sine", 0.28, 35, 0.16);
+    heartTimer = 0.45 + Math.max(0, gap - 1.3) * 0.35;
+  }
+}
+
+// ---------- game state ----------
+let state = "menu";
+let lane = 1, goatX = 0, goatY = 0, vy = 0, grounded = true;
+let speed = 12, gap = 4.5, wolfZ = 4.5, wolfX = 0;
+let dist = 0, grassCount = 0, elapsed = 0, invuln = 0, shake = 0, spawnTimer = 0;
+let overAt = 0, best = 0, clock = 0;
+let nightmare = false;
+const CFG = {
+  normal:    { baseSpeed: 12, maxSpeed: 26, decay: 0.06, hit: 1.5, grassGain: 0.7, gapStart: 4.5, gapMax: 5.5,
+               wolfScale: 1,    wolfAnim: 12, twoObs: 0.35, grassChance: 0.85 },
+  nightmare: { baseSpeed: 14, maxSpeed: 31, decay: 0.16, hit: 1.8, grassGain: 0.6, gapStart: 4.0, gapMax: 5.0,
+               wolfScale: 1.45, wolfAnim: 19, twoObs: 0.5,  grassChance: 0.55 },
+};
+let C = CFG.normal;
+const bestKey = () => (nightmare ? "goatrush-best-nightmare" : "goatrush-best");
+function loadBest() {
+  best = 0;
+  try { best = parseInt(localStorage.getItem(bestKey()) || "0", 10) || 0; } catch (e) {}
+}
+
+const $ = (id) => document.getElementById(id);
+const hud = $("hud"), overlay = $("overlay"), fill = $("fill");
+
+function reset() {
+  for (const o of obstacles) scene.remove(o);
+  for (const p of pickups) scene.remove(p);
+  obstacles = []; pickups = [];
+  lane = 1; goatX = 0; goatY = 0; vy = 0; grounded = true;
+  speed = C.baseSpeed; gap = C.gapStart; wolfZ = C.gapStart; wolfX = 0;
+  dist = 0; grassCount = 0; elapsed = 0; invuln = 0; shake = 0; spawnTimer = 0;
+}
+
+function applyMode() {
+  const n = nightmare;
+  C = n ? CFG.nightmare : CFG.normal;
+  const sky = n ? 0x070b1f : 0x9bd4f5;
+  scene.background.set(sky);
+  scene.fog.color.set(sky);
+  scene.fog.near = n ? 10 : 28;
+  scene.fog.far = n ? 50 : 75;
+  hemi.color.set(n ? 0x6677cc : 0xffffff);
+  hemi.groundColor.set(n ? 0x101830 : 0x6a8f4a);
+  hemi.intensity = n ? 0.45 : 0.75;
+  sun.color.set(n ? 0x8fa6ff : 0xffffff);
+  sun.intensity = n ? 0.35 : 0.8;
+  ground.material.color.set(n ? 0x1b3a2c : 0x6fb85a);
+  path.material.color.set(n ? 0x4a4036 : 0xd3b27a);
+  nightGroup.visible = n;
+  lantern.intensity = n ? 1.6 : 0;
+  wolfA.g.scale.setScalar(C.wolfScale);
+  $("vig").style.display = n ? "block" : "none";
+}
+
+function show(id) {
+  for (const p of ["home", "howto", "over"]) $(p).style.display = p === id ? "flex" : "none";
+  overlay.style.display = "flex";
+}
+function readBest(k) {
+  try { return parseInt(localStorage.getItem(k) || "0", 10) || 0; } catch (e) { return 0; }
+}
+function showHome() {
+  state = "menu";
+  nightmare = false;
+  applyMode();
+  reset();
+  hud.style.display = "none";
+  $("bests").textContent = "🏆 Best  ☀️ " + readBest("goatrush-best") + "   🌙 " + readBest("goatrush-best-nightmare");
+  show("home");
+}
+
+function startGame(night) {
+  if (typeof night === "boolean") nightmare = night;
+  applyMode();
+  loadBest();
+  reset();
+  state = "play";
+  growlTimer = 2; heartTimer = 0;
+  if (nightmare) sfx.growl(); else sfx.start();
+  overlay.style.display = "none";
+  hud.style.display = "flex";
+}
+
+function gameOver() {
+  state = "over";
+  overAt = performance.now();
+  sfx.over();
+  const score = Math.floor(dist) + grassCount * 10;
+  if (score > best) {
+    best = score;
+    try { localStorage.setItem(bestKey(), String(best)); } catch (e) {}
+  }
+  $("title").textContent = nightmare ? "🌙 Nightmare: the wolf got you!" : "🐺 The wolf got you!";
+  $("sub").textContent = "Score " + score + "  (" + Math.floor(dist) + " m + " + grassCount + " grass)   Best " + best;
+  $("bRetry").textContent = nightmare ? "🔁 Retry Nightmare" : "🔁 Play again";
+  show("over");
+  hud.style.display = "none";
+}
+
+function jump() {
+  if (state === "play" && grounded) { vy = 10; grounded = false; sfx.jump(); }
+}
+function move(dir) {
+  if (state === "play") {
+    const nl = Math.max(0, Math.min(2, lane + dir));
+    if (nl !== lane) { lane = nl; sfx.lane(); }
+  }
+}
+function tryStart() {
+  if (state === "play") return;
+  if (state === "over" && performance.now() - overAt < 500) return;
+  startGame();
+}
+
+// ---------- input ----------
+addEventListener("keydown", (e) => {
+  ensureAudio();
+  const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+  if (k === "ArrowLeft" || k === "a") move(-1);
+  else if (k === "ArrowRight" || k === "d") move(1);
+  else if (k === "ArrowUp" || k === "w") jump();
+  else if (k === "n") {
+    if (state !== "play" && !(state === "over" && performance.now() - overAt < 500)) startGame(true);
+  }
+  else if (k === " " || k === "Enter") { if (state === "play") jump(); else tryStart(); }
+  if ([" ", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)) e.preventDefault();
+});
+let sx = 0, sy = 0, down = false;
+addEventListener("pointerdown", (e) => { ensureAudio(); sx = e.clientX; sy = e.clientY; down = true; });
+addEventListener("pointerup", (e) => {
+  if (!down) return;
+  down = false;
+  if (e.target.closest && e.target.closest("button")) return;   // mode buttons handle their own taps
+  const dx = e.clientX - sx, dy = e.clientY - sy;
+  if (Math.abs(dx) < 25 && Math.abs(dy) < 25) return;   // taps are handled by the menu buttons
+  if (Math.abs(dx) > Math.abs(dy)) move(dx > 0 ? 1 : -1);
+  else if (dy < 0) jump();
+});
+addEventListener("resize", () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+
+// ---------- update ----------
+function update(dt) {
+  elapsed += dt;
+  heartbeat(dt);
+  speed = Math.min(C.baseSpeed + elapsed * 0.18, C.maxSpeed);
+  dist += speed * dt;
+  gap -= C.decay * dt;
+  invuln = Math.max(0, invuln - dt);
+  shake = Math.max(0, shake - dt);
+
+  goatX += (LANES[lane] - goatX) * Math.min(1, 12 * dt);
+  if (!grounded) {
+    vy -= 28 * dt;
+    goatY += vy * dt;
+    if (goatY <= 0) { goatY = 0; vy = 0; grounded = true; sfx.land(); }
+  }
+
+  spawnTimer -= speed * dt;
+  if (spawnTimer <= 0) { spawnRow(); spawnTimer = 10 + Math.random() * 4; }
+
+  const dz = speed * dt;
+  for (const o of obstacles) {
+    o.position.z += dz;
+    if (o.visible && invuln <= 0 && Math.abs(o.position.z) < 0.8 &&
+        Math.abs(o.position.x - goatX) < 1.0 && goatY < o.userData.h - 0.05) {
+      o.visible = false;
+      gap -= C.hit;
+      sfx.hit();
+      invuln = 1;
+      shake = 0.35;
+    }
+  }
+  for (const p of pickups) {
+    p.position.z += dz;
+    p.rotation.y += 4 * dt;
+    if (p.visible && Math.abs(p.position.z) < 0.9 &&
+        Math.abs(p.position.x - goatX) < 1.1 && goatY < 1.8) {
+      p.visible = false;
+      grassCount++;
+      sfx.grass();
+      gap = Math.min(C.gapMax, gap + C.grassGain);
+    }
+  }
+  for (let i = obstacles.length - 1; i >= 0; i--) {
+    if (obstacles[i].position.z > 12) { scene.remove(obstacles[i]); obstacles.splice(i, 1); }
+  }
+  for (let i = pickups.length - 1; i >= 0; i--) {
+    if (pickups[i].position.z > 12) { scene.remove(pickups[i]); pickups.splice(i, 1); }
+  }
+
+  for (const d of dashes) { d.position.z += dz; if (d.position.z > 10) d.position.z -= 100; }
+  for (const t of trees) { t.position.z += dz; if (t.position.z > 12) t.position.z -= 100; }
+
+  wolfX += (goatX - wolfX) * Math.min(1, (nightmare ? 6 : 3) * dt);
+  wolfZ += (gap - wolfZ) * Math.min(1, 6 * dt);
+
+  if (gap < 1.3) { gameOver(); return; }
+
+  $("score").textContent = Math.floor(dist) + grassCount * 10 + " pts";
+  $("grass").textContent = "🌿 " + grassCount;
+  const frac = Math.max(0, Math.min(1, (gap - 1.3) / (C.gapMax - 1.3)));
+  fill.style.width = frac * 100 + "%";
+  fill.style.background = frac < 0.3 ? "#ff4d4d" : frac < 0.6 ? "#ffb84d" : "#4cd964";
+}
+
+// ---------- render loop ----------
+let last = performance.now();
+function loop(now) {
+  const dt = Math.min((now - last) / 1000, 0.05);
+  last = now;
+  clock += dt;
+
+  if (state === "play") update(dt);
+  else if (state === "menu") {   // keep the road scrolling behind the home screen
+    const mz = 9 * dt;
+    for (const d of dashes) { d.position.z += mz; if (d.position.z > 10) d.position.z -= 100; }
+    for (const t of trees) { t.position.z += mz; if (t.position.z > 12) t.position.z -= 100; }
+  }
+
+  const running = state !== "over";
+  const gf = state === "play" ? 1.6 : 0.8;
+  gallop(goatA, clock, 14 * gf, running ? 0.9 : 0);
+  gallop(wolfA, clock + 1, C.wolfAnim * gf, running ? 0.9 : 0);
+
+  goatA.g.position.set(goatX, goatY + (grounded && running ? Math.abs(Math.sin(clock * 14 * gf)) * 0.06 : 0), 0);
+  goatA.g.rotation.z = (LANES[lane] - goatX) * -0.08;
+  goatA.g.visible = !(invuln > 0 && Math.floor(clock * 20) % 2 === 0);
+
+  wolfA.g.position.set(wolfX, running ? Math.abs(Math.sin(clock * C.wolfAnim * gf)) * 0.08 : 0, wolfZ);
+  lantern.position.set(goatX, 3, 1.5);
+  wolfA.g.rotation.z = (goatX - wolfX) * -0.06;
+
+  const scared = nightmare && state === "play" && gap < 2.2;   // camera trembles when the wolf is close
+  const sh = (shake > 0 || scared) ? (Math.random() - 0.5) * (shake > 0 ? 0.4 : 0.12) : 0;
+  if (state === "play") {
+    camera.position.set(goatX * 0.5 + sh, 5.5, 9);
+    camera.lookAt(goatX * 0.3, 0.8, -6);
+  } else {   // slow cinematic orbit around the goat and wolf on the home / game-over screens
+    const a = clock * 0.35;
+    camera.position.set(Math.sin(a) * 6, 2.8 + Math.sin(a * 0.7) * 0.6, 6.5 + Math.cos(a) * 1.5);
+    camera.lookAt(0, 1.0, 1.5);
+  }
+
+  renderer.render(scene, camera);
+  requestAnimationFrame(loop);
+}
+$("bNormal").addEventListener("click", (e) => {
+  e.target.blur();
+  if (state === "over" && performance.now() - overAt < 500) return;
+  startGame(false);
+});
+$("bNight").addEventListener("click", (e) => {
+  e.target.blur();
+  if (state === "over" && performance.now() - overAt < 500) return;
+  startGame(true);
+});
+
+$("bHow").addEventListener("click", (e) => { e.target.blur(); show("howto"); });
+$("bBack").addEventListener("click", (e) => { e.target.blur(); show("home"); });
+$("bHome").addEventListener("click", (e) => { e.target.blur(); showHome(); });
+$("bRetry").addEventListener("click", (e) => {
+  e.target.blur();
+  if (performance.now() - overAt < 500) return;
+  startGame(nightmare);
+});
+// hovering the Nightmare button previews the night world behind the home screen
+$("bNight").addEventListener("pointerenter", () => { if (state === "menu") { nightmare = true; applyMode(); } });
+$("bNight").addEventListener("pointerleave", () => { if (state === "menu") { nightmare = false; applyMode(); } });
+
+// sound: click blip on every menu button, plus the mute toggle
+addEventListener("click", (e) => {
+  const b = e.target.closest && e.target.closest("button");
+  if (b && b.id !== "mute") sfx.click();
+});
+const muteBtn = $("mute");
+muteBtn.textContent = muted ? "🔇" : "🔊";
+muteBtn.addEventListener("click", (e) => {
+  e.target.blur();
+  muted = !muted;
+  try { localStorage.setItem("goatrush-muted", muted ? "1" : "0"); } catch (err) {}
+  muteBtn.textContent = muted ? "🔇" : "🔊";
+  if (!muted) sfx.click();
+});
+
+showHome();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
